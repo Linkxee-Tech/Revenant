@@ -118,17 +118,15 @@ fn jpeg_dim(data: &[u8]) -> Option<(u32, u32)> {
         if len < 2 || i + len > data.len() {
             break;
         }
-        if (0xC0..=0xC3).contains(&marker)
+        if ((0xC0..=0xC3).contains(&marker)
             || (0xC5..=0xC7).contains(&marker)
             || (0xC9..=0xCB).contains(&marker)
-            || (0xCD..=0xCF).contains(&marker)
-        {
-            if i + 7 <= data.len() {
+            || (0xCD..=0xCF).contains(&marker))
+            && i + 7 <= data.len() {
                 let h = u16::from_be_bytes([data[i + 3], data[i + 4]]) as u32;
                 let w = u16::from_be_bytes([data[i + 5], data[i + 6]]) as u32;
                 return Some((w, h));
             }
-        }
         i += len;
     }
     None

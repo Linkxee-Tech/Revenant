@@ -6,7 +6,6 @@
 /// 2. Preview extracts structural metadata from known file types
 /// 3. Session is persisted and survives lookup by ID
 /// 4. Source is never mutated during or after scan
-
 use revenant_core::{config, engine, session, signatures};
 use sha2::{Digest, Sha256};
 use std::path::PathBuf;
@@ -29,7 +28,9 @@ fn make_integration_image(fixtures: &std::path::Path) -> PathBuf {
     buf.extend_from_slice(&[0xFF, 0xD8, 0xFF, 0xE0]);
     buf.extend_from_slice(&[0x00, 0x10]);
     buf.extend_from_slice(b"JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00");
-    buf.extend_from_slice(&[0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x10, 0x00, 0x10, 0x01, 0x01, 0x11, 0x00]);
+    buf.extend_from_slice(&[
+        0xFF, 0xC0, 0x00, 0x0B, 0x08, 0x00, 0x10, 0x00, 0x10, 0x01, 0x01, 0x11, 0x00,
+    ]);
     buf.extend_from_slice(&[0xFF, 0xD9]);
     buf.extend_from_slice(&[0u8; 256]);
 
@@ -122,8 +123,7 @@ fn full_pipeline_scan_to_session_persist() {
         bad_sector_count: result.analysis.bad_sector_count,
     };
     session::save_session(&sess).expect("session must persist");
-    let loaded = session::load_session("integ-session-001")
-        .expect("session must reload from disk");
+    let loaded = session::load_session("integ-session-001").expect("session must reload from disk");
     assert_eq!(loaded.session_id, "integ-session-001");
     assert_eq!(loaded.files_discovered, result.items.len());
 

@@ -118,7 +118,7 @@ pub fn run(
         registry,
         signature_package,
         carve_chunk_size: 4 * 1024 * 1024, // 4MB chunks — real full-device coverage, not an 8MB cap
-        carve_overlap: 1 * 1024 * 1024,    // 1MB boundary overlap — see carve.rs scope note
+        carve_overlap: 1024 * 1024,    // 1MB boundary overlap — see carve.rs scope note
         images_dir,
         recoveries_dir,
         jobs: JobManager::new(),
@@ -136,11 +136,9 @@ pub fn run(
     println!("Endpoints: GET /devices | POST /scans | GET /scans/{{id}} | GET /scan/{{id}}/results | POST /recoveries | GET /recoveries/{{id}} | POST /image");
     println!("NOTE: /scan takes only a registered device_id — no client-supplied file paths are ever accepted.");
 
-    for stream in listener.incoming() {
-        if let Ok(stream) = stream {
-            let state = Arc::clone(&state);
-            handle(stream, state);
-        }
+    for stream in listener.incoming().flatten() {
+        let state = Arc::clone(&state);
+        handle(stream, state);
     }
 }
 
@@ -207,7 +205,7 @@ fn handle(mut stream: TcpStream, state: Arc<AppState>) {
     }
     let body = String::from_utf8_lossy(&request[header_end..header_end + content_len]);
     let (status, ctype, payload) = route(method, path, &body, &state, auth_header);
-    let response=format!("HTTP/1.1 {status}\r\nContent-Type: {ctype}\r\nAccess-Control-Allow-Origin: http://127.0.0.1\r\nAccess-Control-Allow-Headers: Content-Type, Authorization\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",payload.as_bytes().len(),payload);
+    let response=format!("HTTP/1.1 {status}\r\nContent-Type: {ctype}\r\nAccess-Control-Allow-Origin: http://127.0.0.1\r\nAccess-Control-Allow-Headers: Content-Type, Authorization\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",payload.len(),payload);
     let _ = stream.write_all(response.as_bytes());
 }
 fn write_error(stream: &mut TcpStream, status: &str, msg: &str) {
@@ -223,15 +221,14 @@ fn route(
     state: &Arc<AppState>,
     auth_header: &str,
 ) -> (&'static str, &'static str, String) {
-    if method == "POST" || method == "DELETE" {
-        if !crate::auth::validate_bearer_token(auth_header, &state.auth_token) {
+    if (method == "POST" || method == "DELETE")
+        && !crate::auth::validate_bearer_token(auth_header, &state.auth_token) {
             return (
                 "401 Unauthorized",
                 "application/json",
                 "{\"error\":\"invalid or missing auth token\"}".to_string(),
             );
         }
-    }
     match (method, path) {
         ("GET", "/devices") => {
             let devices = state.registry.list();
@@ -512,8 +509,13 @@ fn route(
                                 Some(ref path) => {
                                     match crate::storage::FileBackedReader::open_read_only(path) {
                                         Ok(raw) => {
-                                            let mut resilient = crate::resilience::ResilientReader::new(raw, 3);
-                                            crate::fat32::read_runs(&mut resilient, &r.data_runs, preview_len)
+                                            let mut resilient =
+                                                crate::resilience::ResilientReader::new(raw, 3);
+                                            crate::fat32::read_runs(
+                                                &mut resilient,
+                                                &r.data_runs,
+                                                preview_len,
+                                            )
                                         }
                                         Err(_) => Vec::new(),
                                     }
@@ -654,8 +656,13 @@ fn route(
                                 Some(ref path) => {
                                     match crate::storage::FileBackedReader::open_read_only(path) {
                                         Ok(raw) => {
-                                            let mut resilient = crate::resilience::ResilientReader::new(raw, 3);
-                                            crate::fat32::read_runs(&mut resilient, &record.data_runs, record.size_bytes)
+                                            let mut resilient =
+                                                crate::resilience::ResilientReader::new(raw, 3);
+                                            crate::fat32::read_runs(
+                                                &mut resilient,
+                                                &record.data_runs,
+                                                record.size_bytes,
+                                            )
                                         }
                                         Err(_) => Vec::new(),
                                     }
@@ -753,18 +760,26 @@ fn route(
                     succeeded,
                     failed,
                 };
-                
+
                 // Generate and save cryptographically verifiable evidence manifest (Phase 16 gap closed)
-                let record_source_device = selected.first().map(|r| r.source_device_id.clone()).unwrap_or_default();
+                let record_source_device = selected
+                    .first()
+                    .map(|r| r.source_device_id.clone())
+                    .unwrap_or_default();
                 let evidence = crate::reporting::generate_evidence_manifest(
                     &sid,
-                    &state2.registry.get(&record_source_device).and_then(|d| d.backing_path.clone()).unwrap_or_default(),
+                    &state2
+                        .registry
+                        .get(&record_source_device)
+                        .and_then(|d| d.backing_path.clone())
+                        .unwrap_or_default(),
                     0, // capacity omitted for now
                     "recovered",
                     manifest.files.len(),
                     succeeded,
                 );
-                let _ = crate::reporting::save_manifest_versioned(&state2.recoveries_dir, &evidence);
+                let _ =
+                    crate::reporting::save_manifest_versioned(&state2.recoveries_dir, &evidence);
 
                 std::fs::create_dir_all(&state2.recoveries_dir).ok();
                 let path = format!("{}/{}.json", state2.recoveries_dir, rid);
@@ -916,20 +931,30 @@ fn route(
 fn records_dir() -> String {
     format!("{}/records", crate::config::data_dir())
 }
-fn persist_records(session_id: &str, device_id: &str, records: &[RecoveredFileRecord]) -> std::io::Result<()> {
+fn persist_records(
+    session_id: &str,
+    device_id: &str,
+    records: &[RecoveredFileRecord],
+) -> std::io::Result<()> {
     let dir = format!("{}/{}", records_dir(), session_id);
     std::fs::create_dir_all(&dir)?;
     let path = format!("{}/metadata.json", dir);
     let tmp = format!("{}.tmp", path);
     // Serialize the full record (data_runs included, resident_data as base64 bytes array).
     // The `data` field no longer exists, so nothing large lives on disk.
-    let tagged: Vec<serde_json::Value> = records.iter().map(|r| {
-        let mut v = serde_json::to_value(r).unwrap_or_default();
-        if let Some(obj) = v.as_object_mut() {
-            obj.insert("_device_id".into(), serde_json::Value::String(device_id.to_string()));
-        }
-        v
-    }).collect();
+    let tagged: Vec<serde_json::Value> = records
+        .iter()
+        .map(|r| {
+            let mut v = serde_json::to_value(r).unwrap_or_default();
+            if let Some(obj) = v.as_object_mut() {
+                obj.insert(
+                    "_device_id".into(),
+                    serde_json::Value::String(device_id.to_string()),
+                );
+            }
+            v
+        })
+        .collect();
     std::fs::write(&tmp, serde_json::to_vec_pretty(&tagged).unwrap())?;
     std::fs::rename(tmp, path)
 }
@@ -960,8 +985,28 @@ fn build_records(session_id: &str, items: &[RecoveredItem]) -> Vec<RecoveredFile
     let mut hashes: Vec<(usize, String)> = Vec::new();
 
     for (i, item) in items.iter().enumerate() {
-        let (name, file_type, size_bytes, source, score_val, complete, reconstruction_state,
-             data_runs, resident_data): (String, String, usize, &str, u8, bool, String, Vec<(u64,u64)>, Option<Vec<u8>>) = match item {
+        #[allow(clippy::type_complexity)]
+        let (
+            name,
+            file_type,
+            size_bytes,
+            source,
+            score_val,
+            complete,
+            reconstruction_state,
+            data_runs,
+            resident_data,
+        ): (
+            String,
+            String,
+            usize,
+            &str,
+            u8,
+            bool,
+            String,
+            Vec<(u64, u64)>,
+            Option<Vec<u8>>,
+        ) = match item {
             RecoveredItem::Carved { file: f, data } => {
                 let sb = score(f);
                 (
@@ -971,12 +1016,24 @@ fn build_records(session_id: &str, items: &[RecoveredItem]) -> Vec<RecoveredFile
                     "raw_carving",
                     sb.score,
                     f.complete,
-                    if f.complete {"CONTIGUOUS_VERIFIED".into()} else {"PARTIAL".into()},
+                    if f.complete {
+                        "CONTIGUOUS_VERIFIED".into()
+                    } else {
+                        "PARTIAL".into()
+                    },
                     Vec::new(),
                     Some(data.clone()),
                 )
             }
-            RecoveredItem::NtfsEntry { name, size, is_directory: _, resident_data, data_runs, chain_verified, reconstruction_state } => {
+            RecoveredItem::NtfsEntry {
+                name,
+                size,
+                is_directory: _,
+                resident_data,
+                data_runs,
+                chain_verified,
+                reconstruction_state,
+            } => {
                 let ext = guess_ext(name);
                 let conf = crate::scoring::unified_confidence(
                     0.0, // signature not applicable
@@ -988,13 +1045,25 @@ fn build_records(session_id: &str, items: &[RecoveredItem]) -> Vec<RecoveredFile
                     0.8, // ntfs resilience
                 );
                 (
-                    name.clone(), ext, *size as usize, "ntfs_metadata", conf.final_score, *chain_verified,
-                    format!("{:?}",reconstruction_state).to_uppercase(),
+                    name.clone(),
+                    ext,
+                    *size as usize,
+                    "ntfs_metadata",
+                    conf.final_score,
+                    *chain_verified,
+                    format!("{:?}", reconstruction_state).to_uppercase(),
                     data_runs.clone(),
                     resident_data.clone(),
                 )
             }
-            RecoveredItem::Fat32Entry { name, size, resident_data, data_runs, chain_verified, reconstruction_state } => {
+            RecoveredItem::Fat32Entry {
+                name,
+                size,
+                resident_data,
+                data_runs,
+                chain_verified,
+                reconstruction_state,
+            } => {
                 let ext = guess_ext(name);
                 let conf = crate::scoring::unified_confidence(
                     0.0,
@@ -1006,8 +1075,13 @@ fn build_records(session_id: &str, items: &[RecoveredItem]) -> Vec<RecoveredFile
                     0.5, // fat32 resilience
                 );
                 (
-                    name.clone(), ext, *size as usize, "fat32_metadata", conf.final_score, *chain_verified,
-                    format!("{:?}",reconstruction_state).to_uppercase(),
+                    name.clone(),
+                    ext,
+                    *size as usize,
+                    "fat32_metadata",
+                    conf.final_score,
+                    *chain_verified,
+                    format!("{:?}", reconstruction_state).to_uppercase(),
                     data_runs.clone(),
                     resident_data.clone(),
                 )
@@ -1016,28 +1090,33 @@ fn build_records(session_id: &str, items: &[RecoveredItem]) -> Vec<RecoveredFile
 
         // Hash: use resident bytes if present, otherwise skip
         // (we don't materialise multi-GB files just to hash them here).
-        let (sha256, structurally_valid, verification_state) = if let Some(ref bytes) = resident_data {
-            if !bytes.is_empty() {
-                let mut hasher = Sha256::new();
-                hasher.update(bytes);
-                let h = format!("{:x}", hasher.finalize());
-                let ext = guess_ext(&name);
-                match verify_bytes_by_ext(&ext, bytes) {
-                    Some(checks) => {
-                        let valid = checks.iter().all(|(_, ok)| *ok);
-                        (h, valid, if valid { "VERIFIED" } else { "RECOVERABLE" }.to_string())
+        let (sha256, structurally_valid, verification_state) =
+            if let Some(ref bytes) = resident_data {
+                if !bytes.is_empty() {
+                    let mut hasher = Sha256::new();
+                    hasher.update(bytes);
+                    let h = format!("{:x}", hasher.finalize());
+                    let ext = guess_ext(&name);
+                    match verify_bytes_by_ext(&ext, bytes) {
+                        Some(checks) => {
+                            let valid = checks.iter().all(|(_, ok)| *ok);
+                            (
+                                h,
+                                valid,
+                                if valid { "VERIFIED" } else { "RECOVERABLE" }.to_string(),
+                            )
+                        }
+                        None => (h, false, "UNSUPPORTED_FORMAT".to_string()),
                     }
-                    None => (h, false, "UNSUPPORTED_FORMAT".to_string()),
+                } else {
+                    (String::new(), false, "UNVERIFIED_NO_DATA".to_string())
                 }
+            } else if !data_runs.is_empty() {
+                // Large file — mark as pending verification
+                (String::new(), false, "PENDING_VERIFICATION".to_string())
             } else {
                 (String::new(), false, "UNVERIFIED_NO_DATA".to_string())
-            }
-        } else if !data_runs.is_empty() {
-            // Large file — mark as pending verification
-            (String::new(), false, "PENDING_VERIFICATION".to_string())
-        } else {
-            (String::new(), false, "UNVERIFIED_NO_DATA".to_string())
-        };
+            };
 
         if !sha256.is_empty() {
             hashes.push((i, sha256.clone()));

@@ -70,7 +70,6 @@ pub struct NtfsDeletedRecord {
 /// at mft_offset for max_records*record_size bytes — that assumption is
 /// fine for a freshly created small test volume (verified) and is an
 /// honest scope limit for a heavily fragmented multi-GB MFT.
-
 /// Full MFT traversal. Record 0 ($MFT) is inspected first so its own DATA
 /// run-list determines where the MFT records live; this removes the old
 /// arbitrary record-count/contiguous-MFT assumption for normal NTFS volumes.
@@ -213,6 +212,7 @@ pub fn scan_mft_for_deleted(
     results
 }
 
+#[allow(clippy::type_complexity)]
 fn parse_attributes(
     record: &[u8],
     start: usize,
@@ -348,6 +348,7 @@ fn utf16le_to_string(bytes: &[u8]) -> String {
 
 /// Reads file content one cluster-run at a time through StorageReader —
 /// bounded reads, not a slice into a preloaded buffer.
+#[allow(clippy::type_complexity)]
 pub fn resolve_data_runs(
     layout: &NtfsLayout,
     runs: &[(i64, u64)],
@@ -358,7 +359,9 @@ pub fn resolve_data_runs(
     for &(lcn, cluster_count) in runs {
         let len = cluster_count * layout.cluster_size as u64;
         let bytes_to_add = len.min(logical_size.saturating_sub(total_bytes));
-        if bytes_to_add == 0 { break; }
+        if bytes_to_add == 0 {
+            break;
+        }
         if lcn < 0 {
             out.push((u64::MAX, bytes_to_add));
         } else {
@@ -372,11 +375,7 @@ pub fn resolve_data_runs(
 
 /// Materialise bytes from a resolved run list (sparse runs at offset=u64::MAX
 /// are zero-filled). Reads only `limit` bytes maximum via StorageReader.
-pub fn read_runs(
-    reader: &mut dyn StorageReader,
-    runs: &[(u64, u64)],
-    limit: usize,
-) -> Vec<u8> {
+pub fn read_runs(reader: &mut dyn StorageReader, runs: &[(u64, u64)], limit: usize) -> Vec<u8> {
     let mut out = Vec::new();
     for &(off, len) in runs {
         if out.len() >= limit {
@@ -385,7 +384,7 @@ pub fn read_runs(
         let want = (len as usize).min(limit - out.len());
         if off == u64::MAX {
             // sparse / unallocated region — zero fill
-            out.extend(std::iter::repeat(0u8).take(want));
+            out.extend(std::iter::repeat_n(0u8, want));
         } else {
             match reader.read_range(off, want) {
                 Ok(bytes) => out.extend_from_slice(&bytes),

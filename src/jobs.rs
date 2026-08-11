@@ -111,8 +111,15 @@ impl JobManager {
                 j.status = JobStatus::Paused;
             }
         });
-        if self.get(id).map(|j| j.status == JobStatus::Paused).unwrap_or(false) {
-            self.pause_flags.lock().unwrap().insert(id.to_string(), true);
+        if self
+            .get(id)
+            .map(|j| j.status == JobStatus::Paused)
+            .unwrap_or(false)
+        {
+            self.pause_flags
+                .lock()
+                .unwrap()
+                .insert(id.to_string(), true);
         }
         self.persist_job(id);
     }
@@ -122,11 +129,19 @@ impl JobManager {
                 j.status = JobStatus::Running;
             }
         });
-        self.pause_flags.lock().unwrap().insert(id.to_string(), false);
+        self.pause_flags
+            .lock()
+            .unwrap()
+            .insert(id.to_string(), false);
         self.persist_job(id);
     }
     pub fn is_paused(&self, id: &str) -> bool {
-        self.pause_flags.lock().unwrap().get(id).copied().unwrap_or(false)
+        self.pause_flags
+            .lock()
+            .unwrap()
+            .get(id)
+            .copied()
+            .unwrap_or(false)
     }
     pub fn wait_if_paused(&self, id: &str) {
         while self.is_paused(id) {
@@ -145,7 +160,10 @@ impl JobManager {
             j.phase = "cancelled".into();
             j.completed_at = Some(crate::server::now_iso_public());
         });
-        self.pause_flags.lock().unwrap().insert(id.to_string(), false);
+        self.pause_flags
+            .lock()
+            .unwrap()
+            .insert(id.to_string(), false);
         self.persist_job(id);
     }
     pub fn mark_completed(&self, id: &str) {
@@ -155,7 +173,10 @@ impl JobManager {
             j.progress = 1.0;
             j.completed_at = Some(crate::server::now_iso_public());
         });
-        self.pause_flags.lock().unwrap().insert(id.to_string(), false);
+        self.pause_flags
+            .lock()
+            .unwrap()
+            .insert(id.to_string(), false);
         self.persist_job(id);
     }
     pub fn mark_failed(&self, id: &str, err: String) {
@@ -165,7 +186,10 @@ impl JobManager {
             j.error = Some(err);
             j.completed_at = Some(crate::server::now_iso_public());
         });
-        self.pause_flags.lock().unwrap().insert(id.to_string(), false);
+        self.pause_flags
+            .lock()
+            .unwrap()
+            .insert(id.to_string(), false);
         self.persist_job(id);
     }
 }

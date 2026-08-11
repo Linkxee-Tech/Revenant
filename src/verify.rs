@@ -239,7 +239,7 @@ fn verify_isobmff(b: &[u8]) -> Vec<(String, bool)> {
 }
 
 fn verify_7z(b: &[u8]) -> Vec<(String, bool)> {
-    let sig = b.len() >= 6 && &b[..6] == [0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C];
+    let sig = b.len() >= 6 && b[..6] == [0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C];
     let version = sig && b.len() >= 8;
     vec![
         ("7z_signature".into(), sig),
@@ -272,7 +272,7 @@ fn verify_sqlite(b: &[u8]) -> Vec<(String, bool)> {
 }
 
 fn verify_ebml(b: &[u8]) -> Vec<(String, bool)> {
-    let header = b.len() >= 4 && &b[..4] == [0x1A, 0x45, 0xDF, 0xA3];
+    let header = b.len() >= 4 && b[..4] == [0x1A, 0x45, 0xDF, 0xA3];
     vec![
         ("ebml_header".into(), header),
         ("ebml_data_present".into(), b.len() > 4),

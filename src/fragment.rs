@@ -31,10 +31,12 @@ impl FragmentReconstructor {
     }
 
     pub fn validate_format(&self, format: &str) -> bool {
-        matches!(format.to_lowercase().as_str(), "ntfs" | "fat32" | "ext4" | "exfat" | "apfs" | "hfs+")
+        matches!(
+            format.to_lowercase().as_str(),
+            "ntfs" | "fat32" | "ext4" | "exfat" | "apfs" | "hfs+"
+        )
     }
 }
-
 
 pub fn assess(
     expected: u64,

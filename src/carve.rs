@@ -316,7 +316,7 @@ pub fn carve_streaming_mode(
         let carry_len = header_carry.len();
         for local in carry_len..combined.len() {
             let abs = pos + (local - carry_len) as u64;
-            for idx in 0..sigs.len() {
+            for (idx, _) in sigs.iter().enumerate() {
                 let sig = &sigs[idx];
                 if sig.header.is_empty() {
                     continue;

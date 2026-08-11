@@ -26,7 +26,7 @@ pub fn classify_region(bytes: &[u8]) -> DataState {
     // LUKS (Linux Unified Key Setup): magic bytes at the very start of the
     // container — only needs 6 bytes present, not a full sector, so this
     // check must not be gated behind the same 512-byte minimum as BitLocker.
-    if bytes.len() >= 6 && &bytes[0..6] == [0x4C, 0x55, 0x4B, 0x53, 0xBA, 0xBE] {
+    if bytes.len() >= 6 && bytes[0..6] == [0x4C, 0x55, 0x4B, 0x53, 0xBA, 0xBE] {
         return DataState::Encrypted;
     }
     // Password-protected ZIP: general purpose bit flag bit 0 set in the

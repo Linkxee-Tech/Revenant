@@ -42,6 +42,12 @@ pub struct DeviceRegistry {
     devices: Mutex<HashMap<String, RegisteredDevice>>,
 }
 
+impl Default for DeviceRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DeviceRegistry {
     pub fn new() -> Self {
         Self {
@@ -224,23 +230,25 @@ pub fn scan_device_with_mode(
 
     let bad_sector_count = reader.bad_sectors.len();
 
-    let mut cp = crate::checkpoint::ScanCheckpoint::default();
-    cp.session_id = format!("scan-{}", device_id);
-    cp.source_fingerprint = "".to_string();
-    cp.current_offset = reader.get_size().unwrap_or(0);
-    cp.filesystem = fs_name.clone();
-    cp.scan_mode = mode.to_string();
-    cp.candidate_count = items.len() as u64;
-    cp.bad_ranges = reader
-        .bad_sectors
-        .iter()
-        .map(|r| (r.offset, r.offset + r.length as u64))
-        .collect();
-    cp.updated_at = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis()
-        .to_string();
+    let cp = crate::checkpoint::ScanCheckpoint {
+        session_id: format!("scan-{}", device_id),
+        source_fingerprint: "".to_string(),
+        current_offset: reader.get_size().unwrap_or(0),
+        filesystem: fs_name.clone(),
+        scan_mode: mode.to_string(),
+        candidate_count: items.len() as u64,
+        bad_ranges: reader
+            .bad_sectors
+            .iter()
+            .map(|r| (r.offset, r.offset + r.length as u64))
+            .collect(),
+        updated_at: std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_millis()
+            .to_string(),
+        ..Default::default()
+    };
 
     if let Ok(db) =
         crate::db::Database::open(format!("{}/revenant.sqlite3", crate::config::data_dir()))

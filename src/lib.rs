@@ -24,7 +24,7 @@ pub mod server;
 pub mod session;
 pub mod signatures;
 pub mod storage;
-pub mod trim;
 pub mod test_fixtures;
+pub mod trim;
 pub mod verify;
 pub mod workers;

@@ -56,7 +56,7 @@ pub fn validate_destination(
                         different_from_source = false;
                         issues.push(format!("Destination is on the same filesystem/device as registered source '{}' ({})", device.id, backing));
                     }
-                    
+
                     if crate::platform::safe_same_physical_device(backing, dest_dir) {
                         different_from_source = false;
                         issues.push(format!("Destination is on the SAME PHYSICAL DEVICE as registered source '{}' ({})", device.id, backing));

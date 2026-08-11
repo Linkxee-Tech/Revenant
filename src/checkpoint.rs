@@ -23,12 +23,12 @@ pub struct ScanCheckpoint {
 
 pub fn persist(db: &crate::db::Database, cp: &ScanCheckpoint) -> io::Result<()> {
     db.save_checkpoint(&cp.session_id, cp, &cp.updated_at)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+        .map_err(io::Error::other)
 }
 pub fn load(db: &crate::db::Database, id: &str) -> io::Result<Option<ScanCheckpoint>> {
     match db
         .checkpoint(id)
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))?
+        .map_err(io::Error::other)?
     {
         Some(s) => serde_json::from_str(&s)
             .map(Some)

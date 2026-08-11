@@ -74,7 +74,7 @@ impl<R: StorageReader> ResilientReader<R> {
                         attempts,
                         classification: "io_error_after_retry".to_string(),
                     });
-                    result.extend(std::iter::repeat(0u8).take(this_len));
+                    result.extend(std::iter::repeat_n(0u8, this_len));
                 }
             }
 

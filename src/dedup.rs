@@ -41,13 +41,19 @@ pub fn hash_and_group(buf: &[u8], files: &[CarvedFile]) -> Vec<DedupGroup> {
 
 pub struct CandidateResolver {}
 
+impl Default for CandidateResolver {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl CandidateResolver {
     pub fn new() -> Self {
         Self {}
     }
 
     /// Takes a slice of `CarvedFile`s and returns a deduplicated list
-    /// by detecting overlapping byte offset ranges and applying 
+    /// by detecting overlapping byte offset ranges and applying
     /// evidence-based conflict resolution.
     pub fn resolve(&self, candidates: &[CarvedFile]) -> Vec<CarvedFile> {
         let mut sorted = candidates.to_vec();
@@ -64,7 +70,9 @@ impl CandidateResolver {
                     let score_last = Self::score(last);
                     let score_cand = Self::score(&cand);
 
-                    if score_cand > score_last || (score_cand == score_last && cand.size > last.size) {
+                    if score_cand > score_last
+                        || (score_cand == score_last && cand.size > last.size)
+                    {
                         *last = cand;
                     }
                     continue;

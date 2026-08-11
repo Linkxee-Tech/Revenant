@@ -110,6 +110,7 @@ impl Database {
         CREATE TABLE IF NOT EXISTS manifests(id TEXT PRIMARY KEY, session_id TEXT, manifest_json TEXT NOT NULL, created_at TEXT NOT NULL);
         "#)
     }
+    #[allow(clippy::too_many_arguments)]
     pub fn upsert_session<T: Serialize>(
         &self,
         id: &str,
@@ -185,6 +186,7 @@ impl Database {
         )
         .optional()
     }
+    #[allow(clippy::too_many_arguments)]
     pub fn save_recovery<T: Serialize>(
         &self,
         id: &str,
@@ -215,6 +217,7 @@ impl Database {
         rows.collect()
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn upsert_scan_job<T: Serialize>(
         &self,
         id: &str,
@@ -331,13 +334,18 @@ impl Database {
 
     pub fn get_manifest(&self, id: &str) -> rusqlite::Result<Option<ManifestRecord>> {
         let c = self.conn()?;
-        c.query_row("SELECT id,session_id,manifest_json,created_at FROM manifests WHERE id=?", params![id], |r| {
-            Ok(ManifestRecord {
-                id: r.get(0)?,
-                session_id: r.get(1)?,
-                manifest_json: r.get(2)?,
-                created_at: r.get(3)?,
-            })
-        }).optional()
+        c.query_row(
+            "SELECT id,session_id,manifest_json,created_at FROM manifests WHERE id=?",
+            params![id],
+            |r| {
+                Ok(ManifestRecord {
+                    id: r.get(0)?,
+                    session_id: r.get(1)?,
+                    manifest_json: r.get(2)?,
+                    created_at: r.get(3)?,
+                })
+            },
+        )
+        .optional()
     }
 }

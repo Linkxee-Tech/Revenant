@@ -11,10 +11,10 @@ pub fn generate_token() -> String {
         .unwrap_or_default()
         .as_nanos();
     let pid = std::process::id();
-    
+
     hasher.update(format!("{}-{}", sys_time, pid).as_bytes());
     let result = hasher.finalize();
-    
+
     format!("{:x}", result)
 }
 

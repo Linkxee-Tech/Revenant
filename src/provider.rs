@@ -58,11 +58,15 @@ impl RecoveryProvider for NtfsFilesystemProvider {
                 let (resident_data, data_runs) = if let Some(res) = d.resident_data {
                     (Some(res), Vec::new())
                 } else {
-                    (None, ntfs::resolve_data_runs(&layout, &d.data_runs, d.logical_size))
+                    (
+                        None,
+                        ntfs::resolve_data_runs(&layout, &d.data_runs, d.logical_size),
+                    )
                 };
-                let recovered_bytes = resident_data.as_ref().map(|x| x.len() as u64).unwrap_or_else(|| {
-                    data_runs.iter().map(|&(_, len)| len).sum()
-                });
+                let recovered_bytes = resident_data
+                    .as_ref()
+                    .map(|x| x.len() as u64)
+                    .unwrap_or_else(|| data_runs.iter().map(|&(_, len)| len).sum());
                 let chain_verified = !d.data_runs.is_empty() && d.logical_size == recovered_bytes;
                 let assessment = crate::fragment::assess(
                     d.logical_size,

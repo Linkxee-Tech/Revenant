@@ -88,7 +88,6 @@ pub struct DeletedEntry {
 /// clusters, and anything past the first was silently invisible). Follows
 /// the FAT chain via fat_entry() exactly like file data does, with a safety
 /// cap against a corrupt/circular chain.
-
 /// Recursively scans the complete directory tree. Deleted entries are
 /// returned, while live subdirectories are traversed so deleted children are
 /// not missed merely because they are not in the root directory.
@@ -159,7 +158,7 @@ pub fn scan_deleted_recursive(
                             },
                             start_cluster: start,
                             size,
-                            metadata_intact: start >= 2 && start < 0x0FFFFFF0,
+                            metadata_intact: (2..0x0FFFFFF0).contains(&start),
                         });
                     } else if !deleted && is_dir && start >= 2 {
                         // Skip . and .. entries.
@@ -241,11 +240,15 @@ pub fn scan_root_directory_for_deleted(
 
                 let raw_name = &entry[0..11];
                 let short_checksum = lfn_checksum(raw_name);
-                let lfn_valid = !lfn_buffer.is_empty() && lfn_buffer.iter().all(|(_, _, c)| *c == short_checksum);
+                let lfn_valid = !lfn_buffer.is_empty()
+                    && lfn_buffer.iter().all(|(_, _, c)| *c == short_checksum);
 
                 let (name, name_source) = if lfn_valid {
-                    let combined: String =
-                        lfn_buffer.iter().rev().map(|(_, s, _)| s.as_str()).collect();
+                    let combined: String = lfn_buffer
+                        .iter()
+                        .rev()
+                        .map(|(_, s, _)| s.as_str())
+                        .collect();
                     (combined, "long_filename_reconstructed".to_string())
                 } else {
                     let raw = &entry[1..11];
@@ -326,7 +329,7 @@ pub fn recover_file_runs(
         return (Vec::new(), true);
     }
     let cluster_count =
-        ((entry.size as u64) + layout.cluster_size as u64 - 1) / layout.cluster_size as u64;
+        (entry.size as u64).div_ceil(layout.cluster_size as u64);
 
     // Walk the FAT chain
     let mut chain = vec![entry.start_cluster];
@@ -334,7 +337,7 @@ pub fn recover_file_runs(
     let mut chain_intact = true;
     for _ in 1..cluster_count {
         let next = layout.fat_entry(reader, current);
-        if next < 2 || next >= 0x0FFFFFF8 {
+        if !(2..0x0FFFFFF8).contains(&next) {
             chain_intact = false;
             break;
         }
@@ -376,11 +379,7 @@ pub fn recover_file_runs(
 
 /// Materialise file bytes from a run list — used by preview and direct recovery.
 /// Reads only the bytes needed, one run at a time through StorageReader.
-pub fn read_runs(
-    reader: &mut dyn StorageReader,
-    runs: &[(u64, u64)],
-    limit: usize,
-) -> Vec<u8> {
+pub fn read_runs(reader: &mut dyn StorageReader, runs: &[(u64, u64)], limit: usize) -> Vec<u8> {
     let mut out = Vec::new();
     for &(off, len) in runs {
         if out.len() >= limit {

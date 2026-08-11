@@ -181,7 +181,10 @@ pub fn safe_same_physical_device(source: &str, destination: &str) -> bool {
     {
         let get_disk_number = |path: &str| -> Option<String> {
             if let Some(pos) = path.find("PhysicalDrive") {
-                let num: String = path[pos + 13..].chars().take_while(|c| c.is_ascii_digit()).collect();
+                let num: String = path[pos + 13..]
+                    .chars()
+                    .take_while(|c| c.is_ascii_digit())
+                    .collect();
                 if !num.is_empty() {
                     return Some(num);
                 }
@@ -196,7 +199,11 @@ pub fn safe_same_physical_device(source: &str, destination: &str) -> bool {
                 .output()
                 .ok()?;
             let s = String::from_utf8_lossy(&out.stdout).trim().to_string();
-            if s.is_empty() { None } else { Some(s) }
+            if s.is_empty() {
+                None
+            } else {
+                Some(s)
+            }
         };
         let sa = get_disk_number(source);
         let sb = get_disk_number(destination);
@@ -215,10 +222,10 @@ pub fn safe_same_physical_device(source: &str, destination: &str) -> bool {
                 .output()
                 .ok()?;
             let text = String::from_utf8_lossy(&out.stdout);
-            
+
             let mut part_of_whole = None;
             let mut device_node = None;
-            
+
             for line in text.lines() {
                 let line = line.trim();
                 if line.starts_with("Part of Whole:") {
@@ -229,7 +236,7 @@ pub fn safe_same_physical_device(source: &str, destination: &str) -> bool {
                     device_node = Some(line.split(':').nth(1)?.trim().to_string());
                 }
             }
-            
+
             if let Some(whole) = part_of_whole {
                 return Some(whole);
             }
@@ -242,7 +249,7 @@ pub fn safe_same_physical_device(source: &str, destination: &str) -> bool {
                     }
                 }
             }
-            
+
             if let Some(pos) = path.find("disk") {
                 let tail = &path[pos + 4..];
                 let num_str: String = tail.chars().take_while(|c| c.is_ascii_digit()).collect();
@@ -252,7 +259,7 @@ pub fn safe_same_physical_device(source: &str, destination: &str) -> bool {
             }
             None
         };
-        
+
         let sa = get_whole_disk(source);
         let sb = get_whole_disk(destination);
         if let (Some(a), Some(b)) = (sa, sb) {
