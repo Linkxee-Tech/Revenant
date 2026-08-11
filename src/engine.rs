@@ -242,7 +242,9 @@ pub fn scan_device_with_mode(
         .as_millis()
         .to_string();
 
-    if let Ok(db) = crate::db::Database::open(format!("{}/revenant.sqlite3", crate::config::data_dir())) {
+    if let Ok(db) =
+        crate::db::Database::open(format!("{}/revenant.sqlite3", crate::config::data_dir()))
+    {
         let _ = crate::checkpoint::persist(&db, &cp);
     }
 
@@ -332,7 +334,7 @@ mod source_immutability_tests {
         hasher.update(&before);
         let hash_before = format!("{:x}", hasher.finalize());
 
-        let mut registry = DeviceRegistry::new();
+        let registry = DeviceRegistry::new();
         registry.register(RegisteredDevice {
             id: "immutability-test".to_string(),
             name: "test".to_string(),
@@ -368,7 +370,7 @@ mod source_immutability_tests {
 
 #[cfg(test)]
 mod bad_sector_propagation_tests {
-    use super::*;
+
 
     /// Real proof that bad-sector counts propagate end-to-end from a faulty
     /// read all the way to EngineResult — not just that the field exists.

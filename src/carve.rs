@@ -389,7 +389,8 @@ pub fn carve_streaming_mode(
                 if mode.eq_ignore_ascii_case("quick") && !complete {
                     continue;
                 }
-                let entropy = reader.read_range(c.start, size)
+                let entropy = reader
+                    .read_range(c.start, size)
                     .map(|d| shannon_entropy(&d))
                     .unwrap_or(0.0);
                 out.push(CarvedFile {
@@ -417,7 +418,8 @@ pub fn carve_streaming_mode(
         if mode.eq_ignore_ascii_case("quick") {
             continue;
         }
-        let entropy = reader.read_range(c.start, size)
+        let entropy = reader
+            .read_range(c.start, size)
             .map(|d| shannon_entropy(&d))
             .unwrap_or(0.0);
         out.push(CarvedFile {
@@ -452,7 +454,7 @@ pub fn read_candidate_bytes(
 mod streaming_tests {
     use super::*;
     use crate::signatures;
-    use crate::storage::{FileBackedReader, StorageReader};
+    use crate::storage::FileBackedReader;
 
     /// Real test: run carve_streaming with a deliberately tiny chunk size
     /// (2KB — much smaller than several of the fixture's embedded files)
