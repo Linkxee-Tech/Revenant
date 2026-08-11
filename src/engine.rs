@@ -371,7 +371,6 @@ mod source_immutability_tests {
 #[cfg(test)]
 mod bad_sector_propagation_tests {
 
-
     /// Real proof that bad-sector counts propagate end-to-end from a faulty
     /// read all the way to EngineResult — not just that the field exists.
     /// Since scan_device() opens its own FileBackedReader internally (it
